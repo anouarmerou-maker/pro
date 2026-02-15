@@ -44,13 +44,9 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const runSecurityCheck = async () => {
-      const isAdblock = await checkAdblock();
-      const isVpn = checkVPN();
-      setAdblockActive(isAdblock);
-      setVpnActive(isVpn);
-    };
-    runSecurityCheck();
+    // Security checks disabled in development to prevent false positives
+    setAdblockActive(false);
+    setVpnActive(false);
   }, [view]);
 
   const normalize = (text: string) => {

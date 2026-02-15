@@ -1,9 +1,9 @@
 
 import { Series, Episode, Server } from '../types';
-import { encryptEpisodeId } from './securityService';
 
 let cachedCombinedData: Series[] | null = null;
 let rawSeriesData: any[] = [];
+let linksMap: Record<string, string> = {};
 
 export const loadAllData = async (): Promise<Series[]> => {
   if (cachedCombinedData) return cachedCombinedData;
@@ -16,6 +16,12 @@ export const loadAllData = async (): Promise<Series[]> => {
     
     const dailyRes = await fetch('/datadaily.json').catch(() => null);
     const rawDailyData = dailyRes && dailyRes.ok ? await dailyRes.json() : [];
+
+    // Load links mapping for episode URL resolution
+    try {
+      const linksRes = await fetch('/links.json');
+      if (linksRes.ok) linksMap = await linksRes.json();
+    } catch { /* links.json optional */ }
 
     const formattedSeries: Series[] = rawSeriesData.map(item => ({
       title: item.series_name || item.title || "بدون عنوان",
@@ -60,11 +66,10 @@ export const fetchSeriesList = async (page: number, limit: number = 24) => {
 export const fetchEpisodesForSeries = async (series: Series): Promise<Episode[]> => {
   try {
     if (series.isDaily && series.direct_player_url) {
-      const secureToken = encryptEpisodeId(`daily_${series.title}`);
       return [{
         num: 1,
         title: "المشغل الرئيسي",
-        direct_url: `/api/secure-embed/${secureToken}`,
+        direct_url: series.direct_player_url,
         page: "",
         id: `daily_${Date.now()}`,
         is_daily: true
@@ -76,14 +81,13 @@ export const fetchEpisodesForSeries = async (series: Series): Promise<Episode[]>
     
     if (found && found.episodes) {
       return found.episodes.map((ep: any) => {
-        const secureToken = encryptEpisodeId(ep.id);
+        const directUrl = linksMap[ep.id] || '';
         return {
           num: parseInt(ep.episode_number) || 0,
           title: ep.title || `الحلقة ${ep.episode_number}`,
-          direct_url: `/api/secure-embed/${secureToken}`,
+          direct_url: directUrl,
           page: "",
-          id: ep.id,
-          secure_token: secureToken
+          id: ep.id
         };
       }).sort((a: any, b: any) => a.num - b.num);
     }
